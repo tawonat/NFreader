@@ -284,16 +284,6 @@ def _numeric_candidates(text: str) -> list[str]:
     return vals
 
 
-def _numeric_tokens_from_words(words):
-    vals = []
-    for w in sorted(words, key=lambda x: x.left):
-        for token in _numeric_candidates(w.text):
-            n = parse_num(token)
-            if n is not None and n > 0:
-                vals.append((w, token, n))
-    return vals
-
-
 def _find_nfe_header_centers(page: dict) -> dict:
     """Encontra o centro das colunas da tabela DANFE usando as palavras do cabeçalho.
     A leitura da quantidade nunca depende apenas da ordem dos tokens do OCR.
@@ -588,43 +578,6 @@ def _parece_razao_social(v: str) -> bool:
         and re.search(r"(?:LTDA|S\.?A\.?|S/A|EIRELI|ME|EPP)$", u, re.I)
         and len(u) >= 4
     )
-
-
-def _extrair_contexto_servico_nfse(lines: list[str], indice_desc: int) -> str:
-    """
-    Recupera o texto descritivo do bloco "SERVIÇO PRESTADO".
-    Serve somente como contexto de classificação quando a descrição declarada
-    pelo prestador é genérica.
-    """
-    candidatos: list[str] = []
-    inicio = max(0, indice_desc - 7)
-    for raw in lines[inicio:indice_desc]:
-        s = re.sub(r"\s+", " ", raw).strip()
-        if not s:
-            continue
-        u = _compactar_rotulo(s)
-        if "DESCRICAODOSERVICO" in u:
-            continue
-        if "INTERMEDIARIO" in u or "DESTINATARIO" in u:
-            continue
-        if "SERVICOPRESTADO" in u and len(s) < 110:
-            continue
-        if "CODIGODETRIBUTACAO" in u or "LOCALDAPRESTACAO" in u:
-            continue
-
-        # Caso código/NBS/local tenham sido colados na mesma linha do texto,
-        # corta a partir do primeiro bloco numérico.
-        s2 = re.sub(r"\s+\d{3,}(?:[./]\d+)*(?:\s*/\s*[-\d.]+)?\b.*$", "", s).strip()
-        s2 = re.sub(r"\s+(?:MARECHAL|TOLEDO|CASCAVEL|FOZ)\b.*$", "", s2, flags=re.I).strip()
-        if len(normalizar_descricao(s2)) >= 25:
-            candidatos.append(s2)
-
-    # Junta linhas adjacentes da própria descrição tributária.
-    saida = []
-    for s in candidatos:
-        if not saida or normalizar_descricao(s) != normalizar_descricao(saida[-1]):
-            saida.append(s)
-    return " ".join(saida[-3:]).strip()
 
 
 def _linha_descritiva_servico(s: str) -> str:
